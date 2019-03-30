@@ -3,6 +3,44 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import Dataset
+import os
+import struct
+import numpy as np
+from PIL import Image
+
+
+class my_dataset(Dataset):
+    def __init__(self, path, kind, transform=None, target_transform=None):
+        if kind == "test":
+            kind = 't10k'
+        self.image_path = os.path.join(path, '%s-images.idx3-ubyte' % kind)
+        self.label_path = os.path.join(path, '%s-labels.idx1-ubyte' % kind)
+        self.transform = transform
+        self.target_transform = target_transform
+
+        with open(self.label_path, 'rb') as lbpath:
+            magic, n = struct.unpack('>II', lbpath.read(8))
+            self.labels = np.fromfile(lbpath, dtype=np.uint8)
+
+        with open(self.image_path, 'rb') as imgpath:
+            magic, n, rows, cols = struct.unpack('>IIII', imgpath.read(16))
+            self.images = np.fromfile(imgpath, dtype=np.uint8).reshape(len(self.labels), 784)
+
+    def __getitem__(self, index):
+        img = self.images[index].reshape(28, 28)
+        label = self.labels[index]
+        img = Image.fromarray(img, mode='L')
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.target_transform is not None:
+            label = self.target_transform(label)
+        return img, int(label)
+
+    def __len__(self):
+        return len(self.images)
+
 
 epochs = 3 # 数据集通过网络的次数
 batch_size_train = 64 # 批大小
@@ -13,15 +51,13 @@ log_interval = 10
 
 # data loading
 train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('.\\', train=True, download=True,
-                               transform=torchvision.transforms.Compose([
+    my_dataset('../MNIST/', "train", transform=torchvision.transforms.Compose([
                                    torchvision.transforms.ToTensor(),
-                                   torchvision.transforms.Normalize((0.1307,), (0.3081, ))
-                               ])),  batch_size=batch_size_train, shuffle=True)
+                                   torchvision.transforms.Normalize((0.1307,), (0.3081,))
+                               ])), batch_size=batch_size_train, shuffle=True)
 
 test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('.\\', train=False, download=True,
-                               transform=torchvision.transforms.Compose([
+    my_dataset('../MNIST/', "test", transform=torchvision.transforms.Compose([
                                    torchvision.transforms.ToTensor(),
                                    torchvision.transforms.Normalize((0.1307,), (0.3081,))
                                ])), batch_size=batch_size_test, shuffle=True)
@@ -91,7 +127,7 @@ def test():
     with torch.no_grad(): # X track
         for data, target in test_loader:
             output = network(data)
-            test_loss += F.nll_loss(output, target, size_average=False).item()
+            test_loss += F.nll_loss(output, target).item()
             pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).sum()
         test_loss /= len(test_loader.dataset)
