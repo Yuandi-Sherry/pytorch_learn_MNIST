@@ -3,9 +3,6 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import os
-import struct
-import numpy as np
 
 epochs = 3 # 数据集通过网络的次数
 batch_size_train = 64 # 批大小
@@ -33,7 +30,6 @@ examples = enumerate(test_loader)
 batch_idx, (examples_data, example_targets) = next(examples)
 print(examples_data.shape)
 
-
 # build the network
 class Net(nn.Module):
     def __init__(self):
@@ -54,7 +50,7 @@ class Net(nn.Module):
         return F.log_softmax(x, dim=1)
 
 network = Net()
-optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum)
+optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum = momentum)
 optimizer.zero_grad()
 # keep track of the progress, y -> loss, x -> counter
 train_losses = []
